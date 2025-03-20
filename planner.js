@@ -2,16 +2,12 @@ const baseUrl = `https://fsa-crud-2aa9294fe819.herokuapp.com/api/2501-FTB-ET-WEB
 
 const state = {
     currentParties: [],
-    addParty: [],
-    deleteParty: [],
 };
 
 const root = document.querySelector(`#root`);
-const add = document.querySelector(`#getButton`);
-const back = document.querySelector(`#backButton`);
 const addPartyForm = document.querySelector('#addPartyForm');
 
-// Function to render parties or party details
+// Function to render parties
 const render = (parties) => {
     root.innerHTML = '';  // Clear root before rendering
 
@@ -21,66 +17,65 @@ const render = (parties) => {
             card.classList.add(`card`);
             card.innerHTML = `
                 <h1>${party.name}</h1>
-                <h2>${party.date}</h2>
-                <h3>${party.time}</h3>
-                <h4>${party.location}</h4>
-                <button class="getDetails" data-url="${party.url}">Get Details</button>
+                <h2>Date: ${party.date}</h2>
+                <h3>Time: ${party.time}</h3>
+                <h4>Location: ${party.location}</h4>
+                <p>${party.description}</p>
                 <button class="deleteParty" data-id="${party.id}">Delete Party</button>
             `;
             root.append(card);
         });
 
-        // Attach event listeners to the "Get Details" buttons
-        document.querySelectorAll('.getDetails').forEach((button) => {
-            button.addEventListener('click', (e) => {
-                const partyUrl = e.target.dataset.url;
-                // Handle displaying party details here
-                console.log('Details for party at URL:', partyUrl);
-            });
-        });
-
-        // Attach event listeners to the "Delete Party" buttons
+        // Attach delete functionality
         document.querySelectorAll('.deleteParty').forEach((button) => {
             button.addEventListener('click', (e) => {
                 const partyId = e.target.dataset.id;
-                deleteParty(partyId);  // Call deleteParty to delete a specific party
+                deleteParty(partyId);
             });
         });
     }
 };
 
-// Fetch and render the list of parties
-const curParties = async () => {
+// Fetch all parties
+const fetchParties = async () => {
     try {
         const res = await fetch(baseUrl);
         const data = await res.json();
-        events = response.data
 
-        state.currentParties = data.results;
+        // Check if the API returns an array or an object with a 'results' key
+        state.currentParties = Array.isArray(data) ? data : data.results || [];
+
         render(state.currentParties);
     } catch (error) {
-        console.error(`Error fetching parties`, error);
+        console.error(`Error fetching parties:`, error);
     }
 };
 
+
 // Add a new party
-const newParty = async (party) => {
+const addParty = async (party) => {
     try {
         const res = await fetch(baseUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(party),
         });
-        const data = await res.json();
 
-        // After adding the party, re-fetch and render the updated list
-        state.addParty.push(data);
-        render(state.addParty);
+        const newParty = await res.json();
 
+        // Ensure state.currentParties is an array before pushing
+        if (Array.isArray(state.currentParties)) {
+            state.currentParties.push(newParty);
+        } else {
+            state.currentParties = [newParty]; // Initialize as array if not
+        }
+
+        render(state.currentParties); // Re-render with updated data
     } catch (error) {
-        console.error(`Error adding party`, error);
+        console.error(`Error adding party:`, error);
     }
 };
+
 
 // Delete a party
 const deleteParty = async (partyId) => {
@@ -89,32 +84,17 @@ const deleteParty = async (partyId) => {
             method: 'DELETE',
         });
         if (res.ok) {
-            console.log(`Party with ID ${partyId} deleted`);
-            // Remove the deleted party from the state and re-render
             state.currentParties = state.currentParties.filter((party) => party.id !== partyId);
             render(state.currentParties);
-        } else {
-            console.error(`Failed to delete party with ID ${partyId}`);
         }
     } catch (error) {
-        console.error(`Error deleting party`, error);
+        console.error(`Error deleting party:`, error);
     }
 };
 
-// Event listener for the "Get All Parties" button
-add.addEventListener('click', () => {
-    curParties();  // Fetch and display all parties when the button is clicked
-});
-
-// Event listener for the "Back" button (optional functionality)
-back.addEventListener('click', () => {
-    // Implement any back navigation or action if needed
-    console.log('Back button clicked');
-});
-
-// Event listener for adding a new party (no page refresh)
+// Add a party when the form is submitted
 addPartyForm.addEventListener('submit', (event) => {
-    event.preventDefault(); // Prevent the form from refreshing the page
+    event.preventDefault();
 
     const newPartyData = {
         name: document.querySelector('#name').value,
@@ -124,8 +104,11 @@ addPartyForm.addEventListener('submit', (event) => {
         description: document.querySelector('#description').value,
     };
 
-    newParty(newPartyData); // Call the newParty function to send data to the server
+    addParty(newPartyData);
+
+    // Clear form inputs after submission
+    addPartyForm.reset();
 });
 
-// Initialize the app by loading parties
-curParties();
+// Automatically load parties when the page loads
+fetchParties();
